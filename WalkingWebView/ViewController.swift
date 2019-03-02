@@ -8,46 +8,49 @@
 
 import UIKit
 import ARKit
-import WebKit
 
-class ViewController: UIViewController, WKUIDelegate {
+class ViewController: UIViewController {
     
-    var webView: WKWebView!
     var sceneView: ARSCNView!
     
     override func loadView() {
         super.loadView()
         
+        let gesture = UITapGestureRecognizer(target: self, action: #selector(tapped))
+        
         sceneView = ARSCNView(frame: .zero)
+        sceneView.addGestureRecognizer(gesture)
         let configuration = ARWorldTrackingConfiguration()
         sceneView.session.run(configuration)
         view.addSubview(sceneView)
-        
-        let webConfiguration = WKWebViewConfiguration()
-        webView = WKWebView(frame: .zero, configuration: webConfiguration)
-        webView.uiDelegate = self
-        view.addSubview(webView)
-        
-        webView.alpha = 0.9
     }
     
-    override func viewDidLoad() {
-        super.viewDidLoad()
+    @objc private func tapped() {
+        guard let currentFrame = self.sceneView.session.currentFrame else {
+            return
+        }
+        let uiWebView = UIWebView(frame: CGRect(x: 0, y: 0, width: 640, height: 480))
+        let request = URLRequest(url: URL(string: "http://www.amazon.com")!)
         
-        let myURL = URL(string:"https://www.google.co.jp")
-        let myRequest = URLRequest(url: myURL!)
-        webView.load(myRequest)
+        uiWebView.loadRequest(request)
+        
+        let plane = SCNPlane(width: 1.0, height: 0.75)
+        plane.firstMaterial?.diffuse.contents = uiWebView
+        plane.firstMaterial?.isDoubleSided = true
+        
+        let node = SCNNode(geometry: plane)
+        
+        var translation = matrix_identity_float4x4
+        translation.columns.3.z = -1.0
+        
+        node.simdTransform = matrix_multiply(currentFrame.camera.transform, translation)
+        node.eulerAngles = SCNVector3(0,0,0)
+        self.sceneView.scene.rootNode.addChildNode(node)
     }
     
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
         let frame = UIScreen.main.bounds
-        let marginRate = CGFloat(0.1)
-        let webViewFrame = CGRect(x: frame.width * marginRate / 2,
-                                  y: frame.height * marginRate,
-                                  width: frame.width * (1 - marginRate),
-                                  height: frame.height * (1 - marginRate))
-        webView.frame = webViewFrame
         sceneView.frame = frame
     }
 }
